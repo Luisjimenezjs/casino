@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cassino</title>
+<style>
+  :root {
+    --felt: #1d4b3a;
+    --felt-dark: #163b2d;
+    --ink: #f2f5f3;
+    --muted: #9fb8ad;
+    --card: #fbfaf7;
+    --card-ink: #22252b;
+    --card-red: #c0392b;
+    --gold: #e8c26a;
+    --pick: #f5d87a;
+    --back: #2b5f7a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 12px;
+    background: radial-gradient(ellipse at 50% 0%, var(--felt) 0%, var(--felt-dark) 75%);
+    color: var(--ink);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  header .talon { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .seat {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    min-height: 96px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.16);
+  }
+
+  .seat.turn { box-shadow: inset 0 0 0 1px var(--gold); }
+
+  .seat .who {
+    width: 84px;
+    flex: none;
+    font-size: 0.78rem;
+    line-height: 1.3;
+    color: var(--muted);
+  }
+
+  .seat .who b { display: block; color: var(--ink); font-size: 0.9rem; font-weight: 600; }
+
+  .cards { display: flex; gap: 6px; flex-wrap: wrap; min-height: 84px; align-items: center; }
+
+  .middle {
+    padding: 14px 10px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.1);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+
+  .middle .label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  /* --- cards --- */
+
+  .card {
+    position: relative;
+    width: 58px;
+    height: 82px;
+    flex: none;
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--card-ink);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+    font-weight: 600;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+
+  .card.red { color: var(--card-red); }
+
+  .card .corner {
+    position: absolute;
+    top: 4px;
+    left: 5px;
+    font-size: 0.82rem;
+    line-height: 1;
+    text-align: center;
+  }
+
+  .card .corner .s { display: block; font-size: 0.8rem; }
+
+  .card .pip {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.9rem;
+    opacity: 0.92;
+  }
+
+  .card .val {
+    position: absolute;
+    right: 4px;
+    bottom: 3px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: rgba(34, 37, 43, 0.4);
+  }
+
+  .card.back {
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.08) 0 4px, transparent 4px 8px),
+      var(--back);
+    box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.15), 0 2px 5px rgba(0, 0, 0, 0.35);
+  }
+
+  .card.pick { cursor: pointer; }
+  .card.pick:hover { transform: translateY(-4px); }
+  .card.on { transform: translateY(-8px); box-shadow: 0 0 0 2px var(--pick), 0 6px 12px rgba(0, 0, 0, 0.4); }
+  .card.dim { opacity: 0.45; }
+
+  .card.flash { animation: flash 0.5s ease; }
+  @keyframes flash {
+    0%   { box-shadow: 0 0 0 3px var(--gold), 0 2px 5px rgba(0,0,0,0.35); }
+    100% { box-shadow: 0 2px 5px rgba(0,0,0,0.35); }
+  }
+
+  .pilecount {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 99px;
+    background: rgba(0, 0, 0, 0.25);
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .pilecount b { color: var(--ink); }
+
+  /* --- controls --- */
+
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-height: 40px;
+  }
+
+  button {
+    font: inherit;
+    font-weight: 600;
+    padding: 8px 16px;
+    border: 0;
+    border-radius: 7px;
+    background: var(--gold);
+    color: #2a2110;
+    cursor: pointer;
+  }
+
+  button.ghost {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--ink);
+  }
+
+  button:disabled { opacity: 0.35; cursor: default; }
+
+  .msg { font-size: 0.85rem; color: var(--muted); flex: 1 1 14rem; min-width: 0; }
+  .msg b { color: var(--ink); font-weight: 600; }
+
+  .sums { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .sums .ok { color: var(--gold); font-weight: 600; }
+
+  /* --- end of deal --- */
+
+  .sheet {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(8, 20, 16, 0.86);
+    z-index: 10;
+  }
+
+  .sheet[hidden] { display: none; }
+
+  .sheet .box {
+    width: min(100%, 26rem);
+    padding: 20px;
+    border-radius: 12px;
+    background: var(--felt-dark);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  }
+
+  .sheet h2 { margin: 0 0 12px; font-size: 1.15rem; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+  th, td { padding: 4px 0; text-align: right; }
+  th:first-child, td:first-child { text-align: left; color: var(--muted); font-weight: 400; }
+  thead th { color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; }
+  tfoot td { border-top: 1px solid rgba(255, 255, 255, 0.15); padding-top: 7px; font-weight: 700; }
+
+  .sheet button { margin-top: 16px; width: 100%; }
+
+  footer { font-size: 0.75rem; color: var(--muted); text-align: center; padding-top: 4px; }
+
+  @media (max-width: 560px) {
+    .card { width: 46px; height: 66px; }
+    .card .pip { font-size: 1.5rem; }
+    .seat .who { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <h1>CASSINO</h1>
+    <div class="talon" id="talon"></div>
+  </header>
+
+  <div class="seat" id="seat-them">
+    <div class="who"><b>Computer</b><span class="pilecount">took <b id="pile-them">0</b></span></div>
+    <div class="cards" id="hand-them"></div>
+  </div>
+
+  <div class="middle">
+    <div class="label">Table</div>
+    <div class="cards" id="table"></div>
+  </div>
+
+  <div class="seat" id="seat-you">
+    <div class="who"><b>You</b><span class="pilecount">took <b id="pile-you">0</b></span></div>
+    <div class="cards" id="hand-you"></div>
+  </div>
+
+  <div class="bar">
+    <button id="take" disabled>Take</button>
+    <button id="place" disabled>Place</button>
+    <button id="clear" class="ghost" disabled>Clear</button>
+    <span class="sums" id="sums"></span>
+  </div>
+
+  <div class="bar">
+    <span class="msg" id="msg"></span>
+    <button id="deal" class="ghost">New deal</button>
+  </div>
+
+  <footer>
+    Values: A&nbsp;1 &middot; J&nbsp;11 &middot; Q&nbsp;12 &middot; K&nbsp;13.
+    What you play and what you take must add up to the same total.
+  </footer>
+
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="box">
+    <h2 id="sheet-title">Deal over</h2>
+    <table>
+      <thead><tr><th></th><th>You</th><th>Computer</th></tr></thead>
+      <tbody id="sheet-rows"></tbody>
+      <tfoot><tr><td>Total</td><td id="sheet-you">0</td><td id="sheet-them">0</td></tr></tfoot>
+    </table>
+    <button id="again">Deal again</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ===========================================================================
+  // The rules. A port of casino.py, kept deliberately close to it.
+  // ===========================================================================
+
+  const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+  const SUITS = ['S', 'H', 'D', 'C'];
+  const DECK = SUITS.flatMap(s => RANKS.map(r => r + s));
+
+  const HAND = 3;    // cards dealt to each player per round
+  const TABLE = 4;   // cards dealt face up at the start of a deal
+
+  const MOST_CARDS = 27;    // a majority of the 52 cards, worth 3
+  const MOST_SPADES = 7;    // a majority of the 13 spades, worth 2
+
+  const rankOf = card => card.slice(0, -1);
+  const suitOf = card => card.slice(-1);
+  const value = card => RANKS.indexOf(rankOf(card)) + 1;
+  const total = cards => cards.reduce((n, c) => n + value(c), 0);
+
+  function newDeal(deck, first = 0) {
+    const hands = [null, null];
+    hands[first] = deck.slice(0, HAND);
+    hands[1 - first] = deck.slice(HAND, 2 * HAND);
+    return {
+      hands,
+      table: deck.slice(2 * HAND, 2 * HAND + TABLE),
+      talon: deck.slice(2 * HAND + TABLE),
+      piles: [[], []],
+      sweeps: [0, 0],
+      player: first,
+      lastCapturer: null,
+    };
+  }
+
+  function legalMoves(state) {
+    const hand = state.hands[state.player];
+    const moves = hand.map(card => ({ hand: [card], table: [] }));
+
+    for (const played of subsets(hand)) {
+      for (const taken of addingUpTo(state.table, total(played))) {
+        moves.push({ hand: played, table: taken });
+      }
+    }
+    return moves;
+  }
+
+  function subsets(cards) {
+    const out = [];
+    for (let mask = 1; mask < (1 << cards.length); mask++) {
+      out.push(cards.filter((_, i) => mask >> i & 1));
+    }
+    return out;
+  }
+
+  // Every non-empty subset of cards whose values add up to the target.
+  function addingUpTo(cards, target) {
+    const values = cards.map(value);
+
+    // rest[i] is everything from i on, so a branch that cannot reach the
+    // target is abandoned instead of walked to the end.
+    const rest = new Array(values.length + 1).fill(0);
+    for (let i = values.length - 1; i >= 0; i--) rest[i] = rest[i + 1] + values[i];
+
+    const out = [];
+    const chosen = [];
+
+    (function walk(i, left) {
+      if (left === 0) {
+        if (chosen.length) out.push(chosen.slice());
+        return;
+      }
+      if (i === values.length || left < 0 || left > rest[i]) return;
+      chosen.push(cards[i]);
+      walk(i + 1, left - values[i]);
+      chosen.pop();
+      walk(i + 1, left);
+    })(0, target);
+
+    return out;
+  }
+
+  function play(state, move) {
+    const player = state.player;
+    check(state, move);
+
+    const hands = state.hands.slice();
+    const piles = state.piles.map(p => p.slice());
+    const sweeps = state.sweeps.slice();
+    let talon = state.talon;
+    let last = state.lastCapturer;
+    let table;
+
+    // Keep the dealt order rather than the order of the move, so that a state
+    // built from the same deck is always the same state.
+    const inMove = new Set(move.hand);
+    const played = state.hands[player].filter(c => inMove.has(c));
+    hands[player] = state.hands[player].filter(c => !inMove.has(c));
+
+    if (move.table.length) {
+      const grabbed = new Set(move.table);
+      const taken = state.table.filter(c => grabbed.has(c));
+      table = state.table.filter(c => !grabbed.has(c));
+      piles[player] = piles[player].concat(played, taken);
+      last = player;
+      if (!table.length) sweeps[player]++;
+    } else {
+      table = state.table.concat(played);
+    }
+
+    // A player who moved with nothing on the table moves again.
+    const bare = state.table.length === 0;
+    let next;
+    let event = null;
+
+    if (hands[0].length || hands[1].length) {
+      next = (bare && hands[player].length) ? player : 1 - player;
+      if (!hands[next].length) next = 1 - next;
+      if (next === player && bare) event = 'again';
+    } else if (talon.length) {
+      // A new round: whoever took cards last draws first and leads.
+      const leader = last === null ? 1 - player : last;
+      hands[leader] = talon.slice(0, HAND);
+      hands[1 - leader] = talon.slice(HAND, 2 * HAND);
+      talon = talon.slice(2 * HAND);
+      next = leader;
+      event = 'round';
+    } else {
+      // The deal is over: what is still on the table goes to whoever took last.
+      const winner = last === null ? player : last;
+      piles[winner] = piles[winner].concat(table);
+      event = table.length ? 'leftover' : null;
+      table = [];
+      next = 1 - player;
+    }
+
+    return { hands, table, talon, piles, sweeps, player: next, lastCapturer: last, event };
+  }
+
+  function check(state, move) {
+    const hand = new Set(state.hands[state.player]);
+    const onTable = new Set(state.table);
+
+    if (!move.hand.length) throw new Error('a move must play at least one card');
+    if (!move.hand.every(c => hand.has(c))) throw new Error('not in hand');
+    if (!move.table.every(c => onTable.has(c))) throw new Error('not on the table');
+
+    if (move.table.length) {
+      if (total(move.hand) !== total(move.table)) throw new Error('the two sides do not add up');
+    } else if (move.hand.length > 1) {
+      throw new Error('only one card at a time can be placed on the table');
+    }
+  }
+
+  const dealOver = s =>
+    !s.hands[0].length && !s.hands[1].length && !s.table.length && !s.talon.length;
+
+  function breakdown(state, player) {
+    const pile = state.piles[player];
+    return [
+      ['Most cards (27+)', pile.length >= MOST_CARDS ? 3 : 0, pile.length + ' cards'],
+      ['Most spades (7+)', pile.filter(c => suitOf(c) === 'S').length >= MOST_SPADES ? 2 : 0,
+        pile.filter(c => suitOf(c) === 'S').length + ' spades'],
+      ['Aces', pile.filter(c => rankOf(c) === 'A').length, ''],
+      ['10 of diamonds', pile.includes('10D') ? 2 : 0, ''],
+      ['2 of spades', pile.includes('2S') ? 1 : 0, ''],
+      ['Sweeps', state.sweeps[player], ''],
+    ];
+  }
+
+  const score = state =>
+    [0, 1].map(p => breakdown(state, p).reduce((n, row) => n + row[1], 0));
+
+  // ===========================================================================
+  // The computer
+  // ===========================================================================
+
+  // What a capture is worth, beyond simply being a capture.
+  function worth(move, sweeps) {
+    let n = move.table.length + move.hand.length;
+    for (const c of move.table.concat(move.hand)) {
+      if (c === '10D') n += 2;
+      else if (c === '2S') n += 1.5;
+      if (rankOf(c) === 'A') n += 1;
+      if (suitOf(c) === 'S') n += 0.35;
+    }
+    return n + (sweeps ? 1.5 : 0);
+  }
+
+  // The best capture available to the player to move, from their own hand.
+  function bestCapture(state) {
+    let best = 0;
+    for (const m of legalMoves(state)) {
+      if (!m.table.length) continue;
+      best = Math.max(best, worth(m, m.table.length === state.table.length));
+    }
+    return best;
+  }
+
+  // What a table would be worth to whoever moves next. The computer does not
+  // get to see the other hand, so it weighs every value by how many cards of
+  // that value it has not yet seen -- the counting a human player can also do.
+  function exposure(state, table) {
+    const seen = new Set(state.hands[state.player].concat(
+      table, state.piles[0], state.piles[1]));
+
+    let risk = 0, weight = 0;
+    for (let v = 1; v <= 13; v++) {
+      const unseen = DECK.filter(c => value(c) === v && !seen.has(c)).length;
+      if (!unseen) continue;
+
+      let best = 0;
+      for (const taken of addingUpTo(table, v)) {
+        best = Math.max(best, worth({ hand: [], table: taken }, taken.length === table.length));
+      }
+      risk += unseen * best;
+      weight += unseen;
+    }
+    return weight ? risk / weight : 0;
+  }
+
+  function computerMove(state) {
+    const moves = legalMoves(state);
+    const captures = moves.filter(m => m.table.length);
+
+    if (captures.length) {
+      return captures.reduce((a, b) => {
+        const sweepA = a.table.length === state.table.length;
+        const sweepB = b.table.length === state.table.length;
+        return worth(b, sweepB) > worth(a, sweepA) ? b : a;
+      });
+    }
+
+    // Nothing to take, so place the card that leaves the least on offer. On a
+    // bare table every placement hands us the second of our two moves, and
+    // then the lookahead is over our own hand and reads as gain instead.
+    const places = moves.filter(m => !m.table.length);
+    const bare = state.table.length === 0;
+    let pick = places[0];
+    let pickScore = Infinity;
+
+    for (const m of places) {
+      const after = play(state, m);
+      // Only the bare-table double move lets us look at the hand that moves
+      // next, because that hand is our own. Anything else, including a hand
+      // just dealt off the talon, we are not entitled to see.
+      const s = (bare && after.player === state.player)
+        ? -bestCapture(after)
+        : exposure(state, after.table);
+      const tieBreak = value(m.hand[0]) * 0.001;
+      if (s + tieBreak < pickScore) { pickScore = s + tieBreak; pick = m; }
+    }
+    return pick;
+  }
+
+  // ===========================================================================
+  // The table
+  // ===========================================================================
+
+  const YOU = 0, THEM = 1;
+
+  const el = id => document.getElementById(id);
+  const ui = {
+    handYou: el('hand-you'), handThem: el('hand-them'), table: el('table'),
+    pileYou: el('pile-you'), pileThem: el('pile-them'), talon: el('talon'),
+    seatYou: el('seat-you'), seatThem: el('seat-them'),
+    take: el('take'), place: el('place'), clear: el('clear'),
+    sums: el('sums'), msg: el('msg'), deal: el('deal'),
+    sheet: el('sheet'), sheetRows: el('sheet-rows'), sheetTitle: el('sheet-title'),
+    sheetYou: el('sheet-you'), sheetThem: el('sheet-them'), again: el('again'),
+  };
+
+  const SYMBOL = { S: '♠', H: '♥', D: '♦', C: '♣' };
+
+  let state = null;
+  let pickedHand = new Set();
+  let pickedTable = new Set();
+  let busy = false;        // the computer is thinking, so ignore clicks
+  let justMoved = [];      // cards to flash after the computer moves
+
+  function shuffled() {
+    const cards = DECK.slice();
+    for (let i = cards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cards[i], cards[j]] = [cards[j], cards[i]];
+    }
+    return cards;
+  }
+
+  function startDeal() {
+    state = newDeal(shuffled(), Math.random() < 0.5 ? YOU : THEM);
+    pickedHand = new Set();
+    pickedTable = new Set();
+    busy = false;
+    justMoved = [];
+    ui.sheet.hidden = true;
+    say(state.player === YOU ? 'Your lead.' : 'The computer leads.');
+    render();
+    if (state.player === THEM) scheduleComputer();
+  }
+
+  function say(html) { ui.msg.innerHTML = html; }
+
+  function cardEl(card, { pickable = false, on = false, back = false, flash = false } = {}) {
+    const d = document.createElement('div');
+    d.className = 'card';
+    if (back) {
+      d.classList.add('back');
+      return d;
+    }
+    const suit = suitOf(card);
+    if (suit === 'H' || suit === 'D') d.classList.add('red');
+    if (pickable) d.classList.add('pick');
+    if (on) d.classList.add('on');
+    if (flash) d.classList.add('flash');
+    d.innerHTML =
+      '<span class="corner">' + rankOf(card) + '<span class="s">' + SYMBOL[suit] + '</span></span>' +
+      '<span class="pip">' + SYMBOL[suit] + '</span>' +
+      '<span class="val">' + value(card) + '</span>';
+    d.dataset.card = card;
+    return d;
+  }
+
+  function render() {
+    const yourTurn = state.player === YOU && !busy && !dealOver(state);
+
+    ui.handThem.replaceChildren(
+      ...state.hands[THEM].map(() => cardEl(null, { back: true })));
+
+    ui.table.replaceChildren(...state.table.map(c => cardEl(c, {
+      pickable: yourTurn,
+      on: pickedTable.has(c),
+      flash: justMoved.includes(c),
+    })));
+
+    ui.handYou.replaceChildren(...state.hands[YOU].map(c => cardEl(c, {
+      pickable: yourTurn,
+      on: pickedHand.has(c),
+    })));
+
+    ui.pileYou.textContent = state.piles[YOU].length;
+    ui.pileThem.textContent = state.piles[THEM].length;
+    ui.talon.textContent = state.talon.length + ' in the talon'
+      + (state.sweeps[YOU] || state.sweeps[THEM]
+        ? '  ·  sweeps ' + state.sweeps[YOU] + '–' + state.sweeps[THEM] : '');
+
+    ui.seatYou.classList.toggle('turn', yourTurn);
+    ui.seatThem.classList.toggle('turn', state.player === THEM && !dealOver(state));
+
+    const hand = [...pickedHand], taken = [...pickedTable];
+    const canTake = yourTurn && hand.length > 0 && taken.length > 0
+      && total(hand) === total(taken);
+    const canPlace = yourTurn && hand.length === 1 && taken.length === 0;
+
+    ui.take.disabled = !canTake;
+    ui.place.disabled = !canPlace;
+    ui.clear.disabled = !yourTurn || (!hand.length && !taken.length);
+
+    if (hand.length || taken.length) {
+      const match = hand.length && taken.length && total(hand) === total(taken);
+      ui.sums.innerHTML = 'playing <b class="' + (match ? 'ok' : '') + '">' + total(hand) +
+        '</b> &middot; taking <b class="' + (match ? 'ok' : '') + '">' + total(taken) + '</b>';
+    } else {
+      ui.sums.textContent = '';
+    }
+
+    justMoved = [];
+  }
+
+  function onCardClick(e) {
+    if (busy || state.player !== YOU || dealOver(state)) return;
+    const card = e.target.closest('.card');
+    if (!card || !card.dataset.card) return;
+
+    const name = card.dataset.card;
+    const set = state.hands[YOU].includes(name) ? pickedHand : pickedTable;
+    if (set.has(name)) set.delete(name); else set.add(name);
+    render();
+  }
+
+  ui.handYou.addEventListener('click', onCardClick);
+  ui.table.addEventListener('click', onCardClick);
+
+  ui.clear.addEventListener('click', () => {
+    pickedHand.clear();
+    pickedTable.clear();
+    render();
+  });
+
+  ui.take.addEventListener('click', () => submit({ hand: [...pickedHand], table: [...pickedTable] }));
+  ui.place.addEventListener('click', () => submit({ hand: [...pickedHand], table: [] }));
+  ui.deal.addEventListener('click', startDeal);
+  ui.again.addEventListener('click', startDeal);
+
+  function submit(move) {
+    let next;
+    try {
+      next = play(state, move);
+    } catch (err) {
+      say('That is not a legal move: ' + err.message + '.');
+      return;
+    }
+
+    const swept = next.sweeps[YOU] > state.sweeps[YOU];
+    state = next;
+    pickedHand.clear();
+    pickedTable.clear();
+
+    say(describe('You', move, swept, state.event));
+    after();
+  }
+
+  function describe(who, move, swept, event) {
+    let line;
+    if (move.table.length) {
+      line = '<b>' + who + '</b> took ' + move.table.length +
+        (move.table.length === 1 ? ' card' : ' cards') + ' with ' +
+        move.hand.join(', ') + '.';
+      if (swept) line += ' <b>Sweep!</b>';
+    } else {
+      line = '<b>' + who + '</b> placed ' + move.hand[0] + '.';
+    }
+    if (event === 'again') line += ' The table was bare, so they play again.';
+    if (event === 'round') line += ' New round dealt.';
+    if (event === 'leftover') line += ' The rest of the table goes to the last capture.';
+    return line;
+  }
+
+  function after() {
+    render();
+    if (dealOver(state)) return finish();
+    if (state.player === THEM) scheduleComputer();
+  }
+
+  function scheduleComputer() {
+    busy = true;
+    render();
+    setTimeout(() => {
+      const move = computerMove(state);
+      const before = state;
+      state = play(state, move);
+      const swept = state.sweeps[THEM] > before.sweeps[THEM];
+      justMoved = move.table.length ? [] : move.hand.slice();
+      busy = false;
+      say(describe('The computer', move, swept, state.event));
+      after();
+    }, 700);
+  }
+
+  function finish() {
+    const rowsYou = breakdown(state, YOU);
+    const rowsThem = breakdown(state, THEM);
+    const [you, them] = score(state);
+
+    ui.sheetRows.replaceChildren(...rowsYou.map((row, i) => {
+      const tr = document.createElement('tr');
+      const note = row[2] ? ' <span style="opacity:.55">(' + row[2] + ')</span>' : '';
+      tr.innerHTML = '<td>' + row[0] + note + '</td><td>' + row[1] + '</td><td>' + rowsThem[i][1] + '</td>';
+      return tr;
+    }));
+
+    ui.sheetYou.textContent = you;
+    ui.sheetThem.textContent = them;
+    ui.sheetTitle.textContent =
+      you > them ? 'You win, ' + you + '–' + them
+        : them > you ? 'The computer wins, ' + them + '–' + you
+          : 'A tie, ' + you + '–' + them;
+    ui.sheet.hidden = false;
+  }
+
+  startDeal();
+})();
+</script>
+
+</body>
+</html>
